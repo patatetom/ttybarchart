@@ -1,0 +1,44 @@
+#!/usr/bin/bash
+set -eu
+
+plot="■"
+
+data=$( sed '$a\' "${1:-/dev/stdin}" )
+
+function get_max_width {
+	previous=$1
+	current=${#2}
+	(( current > previous )) && printf $current || printf $previous
+}
+
+function get_max_value {
+	previous=$1
+	current=$2
+	(( current > previous )) && printf $current || printf $previous
+}
+
+max_label_width=0
+while read label
+do max_label_width=$( get_max_width $max_label_width "$label" )
+done < <( cut -f 1 <<<"$data" )
+
+max_value_width=0
+while read value
+do max_value_width=$( get_max_width $max_value_width "$value" )
+done < <( cut -f 2 <<<"$data" )
+
+max_value=0
+while read value
+do max_value=$( get_max_value $max_value "$value" )
+done < <( cut -f 2 <<<"$data" )
+
+console_width=$( tput cols )
+max_chart_width=$((console_width - max_label_width - max_value_width - 2))
+
+IFS=$'\t'$'\n'
+while read label value
+do
+	chart_width=$(( (max_chart_width * value) / max_value ))
+	printf -v chart "${plot}%.0s" $( seq $chart_width )
+	printf "%${max_label_width}s %s %s\\n" "$label" $chart $value
+done <<<"$data"
